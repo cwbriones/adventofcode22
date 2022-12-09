@@ -46,11 +46,9 @@ def get_dirsizes(cmds):
     dirsizes = Counter()
     for f, size in files.items():
         path = f
-        i = path.rfind("/")
-        while i >= 0:
+        while (i := path.rfind("/")) >= 0:
             path = path[:i]
             dirsizes[path] += size
-            i = path.rfind("/")
     return dirsizes
 
 
