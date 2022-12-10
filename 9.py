@@ -6,14 +6,15 @@ def one(moves):
 
 
 def two(moves):
-    solve(moves, 10)
+    solve(moves, 10, debug=True)
 
 
-def solve(moves, segments):
+def solve(moves, segments, debug=False):
     rope = [(0, 0) for _ in range(segments)]
 
     positions = set()
     deltas = {"U": (0, -1), "D": (0, 1), "L": (-1, 0), "R": (1, 0)}
+    history = []
     for move, amt in moves:
         delta = deltas[move]
         for _ in range(amt):
@@ -26,7 +27,9 @@ def solve(moves, segments):
                 rope[i] = follow(rope[i], rope[i - 1])
                 i += 1
             positions.add(rope[-1])
-        # show(rope, positions)
+        history.append(list(rope))
+    if debug:
+        show(moves, history)
     print(len(positions))
 
 
@@ -47,26 +50,37 @@ def addpos(pos, d):
     return (pos[0] + d[0], pos[1] + d[1])
 
 
-def show(rope, positions):
-    syms = [str(i) for i in range(len(rope))]
+def show(moves, history):
+    syms = [str(i) for i in range(len(history[0]))]
     syms[0] = "H"
     if len(syms) == 2:
         syms[1] = "T"
-
-    ox, oy = 11, 15
-    grid = [["." for _ in range(26)] for _ in range(21)]
-    grid[oy][ox] = "s"
     syms = syms[::-1]
-    for x, y in positions:
-        grid[oy + y][ox + x] = "#"
 
-    for i, (x, y) in enumerate(reversed(rope)):
-        grid[oy + y][ox + x] = syms[i]
+    minx, maxx, miny, maxy = 0, 0, 0, 0
+    for step in history:
+        for x, y in step:
+            minx = min(x, minx)
+            maxx = max(x, maxx)
+            miny = min(y, miny)
+            maxy = max(y, maxy)
+    width = maxx - minx + 1
+    height = maxy - miny + 1
 
-    print()
-    for row in grid:
-        print("".join(row))
-    print()
+    ox, oy = -minx, -miny
+    for (move, amt), rope in zip(moves, history):
+        grid = [["." for _ in range(width)] for _ in range(height)]
+        grid[oy][ox] = "s"
+        # for x, y in visited:
+        #     grid[oy + y][ox + x] = "#"
+
+        for i, (x, y) in enumerate(reversed(rope)):
+            grid[oy + y][ox + x] = syms[i]
+
+        print(f"== {move} {amt} ==")
+        for row in grid:
+            print("".join(row))
+        print()
 
 
 def input():
