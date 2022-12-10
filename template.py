@@ -11,6 +11,15 @@ import os
 import sys
 
 
+if os.environ.get("DEBUG"):
+    def debug(msg):
+        print('[DEBUG]: ', end='', file=sys.stderr)
+        print(msg, file=sys.stderr)
+else:
+    def debug(msg):
+        pass
+
+
 def one(lines):
     print("one")
 
