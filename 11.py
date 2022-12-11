@@ -1,64 +1,43 @@
-import argparse
+from __future__ import annotations
 from collections import (
-    defaultdict,
     deque,
 )
-from contextlib import contextmanager
 from dataclasses import dataclass
-import functools
-import math
-import os
 import sys
 from copy import deepcopy
+from typing import Callable, NamedTuple, Iterator
 
 
-if os.environ.get("DEBUG"):
-    def debug(msg):
-        print('[DEBUG]: ', end='', file=sys.stderr)
-        print(msg, file=sys.stderr)
-else:
-    def debug(msg):
-        pass
-
-
-def one(monkeys):
+def one(monkeys: list[Monkey]) -> None:
     for m in monkeys:
-        print(f'Monkey {m.label}: {m.items}')
-    for _ in range(20):
+        print(m)
+    run(monkeys, 20, divide=True)
+
+
+def two(monkeys: list[Monkey]) -> None:
+    run(monkeys, 10_000)
+
+
+def run(monkeys: list[Monkey], rounds: int, divide: bool = False) -> None:
+    p = 1
+    for m in monkeys:
+        p *= m.test[0]
+    for _ in range(rounds):
         for monkey in monkeys:
-            while True:
-                res = monkey.inspect()
-                if res is None:
-                    break
+            while (res := monkey.inspect(divide=divide)) is not None:
                 item, target = res
-                monkeys[target].receive(item)
-    for m in monkeys:
-        print(f'Monkey {m.label}: {m.inspect_count}')
-    monkeys.sort(key=lambda m: m.inspect_count, reverse=True)
-    print(monkeys[0].inspect_count * monkeys[1].inspect_count)
+                monkeys[target].receive(item % p)
+    for i, m in enumerate(monkeys):
+        print(f"Monkey {i}: {m.count}")
+    monkeys.sort(key=lambda m: m.count, reverse=True)
+    print(monkeys[0].count * monkeys[1].count)
 
 
-def two(monkeys):
-    for _ in range(10_000):
-        for monkey in monkeys:
-            while True:
-                res = monkey.inspect()
-                if res is None:
-                    break
-                item, target = res
-                monkeys[target].receive(item)
-    for m in monkeys:
-        print(f'Monkey {m.label}: {m.inspect_count}')
-    monkeys.sort(key=lambda m: m.inspect_count, reverse=True)
-    print(monkeys[0].inspect_count * monkeys[1].inspect_count)
-
-
-def input():
+def input() -> list["Monkey"]:
     it = (line.strip() for line in sys.stdin.readlines())
     monkeys = []
     while True:
-        monkey = read_monkey(it)
-        monkey.label = len(monkeys)
+        monkey = read_monkey(it, len(monkeys))
         monkeys.append(monkey)
         try:
             gap = next(it)
@@ -66,88 +45,106 @@ def input():
         except StopIteration:
             return monkeys
 
+
+class Test(NamedTuple):
+    modulus: int
+    iftrue: int
+    iffalse: int
+
+
 @dataclass
 class Monkey:
     items: deque[int]
-    test: object
-    op: object
-    worry: int = 0
-    label: int = 0
-    inspect_count = 0
+    test: Test
+    op: Callable[[int], int]
+    count = 0
 
-    def inspect(self):
+    def inspect(self, divide: bool = False) -> tuple[int, int] | None:
         if not self.items:
             return None
-        self.inspect_count += 1
+        self.count += 1
 
         item = self.items.popleft()
-        # update worry level
-        item = self.op(item) // 3
+        item = self.op(item)
+        if divide:
+            item = item // 3
 
-        target = self.test(item)
-        return item, target
+        if item % self.test[0] == 0:
+            return item, self.test[1]
+        else:
+            return item, self.test[2]
 
-    def receive(self, item):
+    def receive(self, item: int) -> None:
         self.items.append(item)
 
-def read_monkey(it):
-    expect_prefix(it, prefix="Monkey")
-    items = expect_prefix(it, prefix="Starting", parse=parse_list)
-    op = expect_prefix(it, parse=read_op)
-    cond = expect_prefix(it, parse=read_cond)
-    iftrue = expect_prefix(it, parse=read_target)
-    iffalse = expect_prefix(it, parse=read_target)
 
-    test = lambda v: iftrue if cond(v) else iffalse
+def read_monkey(it: Iterator[str], num: int) -> Monkey:
+    expect_label(it, f"Monkey {num}")
+    items = expect_label(it, "Starting items", parse=read_items)
+    op = expect_label(it, "Operation", parse=read_op)
+    test = read_test(it)
     return Monkey(items=deque(items), test=test, op=op)
 
-def parse_list(line):
-    return [int(x.strip()) for x in line.split(',')]
 
-def read_target(line):
+def read_test(it: Iterator[str]) -> Test:
+    modulus = expect_label(it, "Test", parse=read_cond)
+    iftrue = expect_label(it, parse=read_target)
+    iffalse = expect_label(it, parse=read_target)
+    return Test(modulus, iftrue, iffalse)
+
+
+def read_items(line: str) -> list[int]:
+    return [int(x.strip()) for x in line.split(",")]
+
+
+def read_target(line: str) -> int:
     line = assert_prefix(line, "throw to monkey")
     return int(line)
 
-def read_op(line):
+
+def read_op(line: str) -> Callable[[int], int]:
     line = assert_prefix(line, "new = old ")
 
     op, rhs = line.split(" ")
 
-    if op == '+':
+    if op == "+":
         if rhs == "old":
-            return lambda v: v * 2
+            return lambda old: old * 2
         else:
-            val = int(rhs)
-            return lambda v: v + val
-    elif op == '*':
+            rhs = int(rhs)
+            return lambda old: old + rhs
+    elif op == "*":
         if rhs == "old":
-            return lambda v: v * v
+            return lambda old: old * old
         else:
-            val = int(rhs)
-            return lambda v: v * val
+            rhs = int(rhs)
+            return lambda old: old * rhs
     else:
         raise ValueError(f"unknown op {op}")
 
-def read_cond(line):
-    v = int(line[len("divisible by "):])
-    return lambda x: x % v == 0
 
-def assert_prefix(line, prefix):
+def read_cond(line: str) -> int:
+    return int(line[len("divisible by ") :])
+
+
+def assert_prefix(line: str, prefix: str) -> str:
     assert line.startswith(prefix)
     l = len(prefix)
     return line[l:].strip()
 
-def expect_prefix(it, prefix=None, parse=None):
+
+def expect_label(it, label=None, parse=None):
     line = next(it)
-    fst, snd = line.split(':')
+    if label is not None:
+        assert_prefix(line, label)
+    _, snd = line.split(":")
     snd = snd.strip()
-    if prefix is not None:
-        assert fst.startswith(prefix), f'{fst} does not start with {prefix}'
     if parse is not None:
         return parse(snd)
     return snd
 
-def main(monkeys):
+
+def main(monkeys: list[Monkey]) -> None:
     one(deepcopy(monkeys))
     two(monkeys)
 
