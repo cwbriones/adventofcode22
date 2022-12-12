@@ -1,8 +1,6 @@
-from collections import (
-    deque,
-)
 import sys
 import copy
+from search import ucs
 
 
 def one(grid):
@@ -11,7 +9,7 @@ def one(grid):
     end = find_replace(grid, "E", "z")
     assert end is not None
 
-    pathlen = search(grid, start, end)
+    pathlen = ucs(grid, start, end, connected)
     assert pathlen is not None
     print(pathlen)
 
@@ -24,35 +22,9 @@ def two(grid):
     shortest = min(
         pathlen
         for start in starts(grid, "a")
-        if (pathlen := search(grid, start, end)) is not None
+        if (pathlen := ucs(grid, start, end, connected)) is not None
     )
     print(shortest)
-
-
-def search(grid, start, end):
-    fringe = deque([(start, 0)])
-    visited = set()
-    ny = len(grid)
-    nx = len(grid[0])
-    while fringe:
-        p, pathlen = fringe.popleft()
-        if p in visited:
-            continue
-        if p == end:
-            return pathlen
-        visited.add(p)
-        x, y = p
-        h = grid[y][x]
-        for qx, qy in [(x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1)]:
-            if qx >= nx or qx < 0:
-                continue
-            if qy >= ny or qy < 0:
-                continue
-            if diff(h, grid[qy][qx]) > 1:
-                continue
-            q = (qx, qy)
-            fringe.append((q, pathlen + 1))
-    return None
 
 
 def find_replace(grid, target, replace):
@@ -71,8 +43,8 @@ def starts(grid, target):
                 yield (i, j)
 
 
-def diff(h1, h2):
-    return ord(h2) - ord(h1)
+def connected(h1, h2):
+    return ord(h2) - ord(h1) <= 1
 
 
 def input():
