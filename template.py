@@ -9,6 +9,7 @@ import functools
 import math
 import os
 import sys
+from copy import deepcopy
 
 
 if os.environ.get("DEBUG"):
@@ -33,7 +34,7 @@ def input():
 
 
 def main(lines):
-    one(lines)
+    one(deepcopy(lines))
     two(lines)
 
 
