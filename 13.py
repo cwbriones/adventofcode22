@@ -1,5 +1,6 @@
 from functools import cmp_to_key
 import sys
+from ast import literal_eval
 
 
 def compare(left, right, depth=0):
@@ -44,7 +45,7 @@ def input():
     while len(lines) % 3 != 0:
         lines.append("")
     # E Z
-    return [[eval(s) for s in ls[:2]] for ls in zip(*[iter(lines)] * 3)]
+    return [[literal_eval(s) for s in ls[:2]] for ls in zip(*[iter(lines)] * 3)]
 
 
 def main(lines):
