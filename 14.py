@@ -1,66 +1,41 @@
-import argparse
-from collections import (
-    defaultdict,
-    deque,
-)
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-import functools
-import math
-import os
 import sys
 from copy import deepcopy
 
+from contextlib import contextmanager
+import cProfile
+import pstats
+from pstats import SortKey
+
 @dataclass
 class Grid:
-    minx: int
-    maxx: int
-    miny: int
     maxy: int
-    # grid: list[list[str]]
-
+    part_two: bool
     walls: set[tuple[int, int]] = field(default_factory=set)
     placed: set[tuple[int, int]] = field(default_factory=set)
 
-    # def draw(self):
-    #     self.grid[0][500 - self.minx] = "+"
-    #     for row in self.grid:
-    #         print("".join(row))
-    #     self.grid[0][500 - self.minx] = "."
-
-
     @classmethod
-    def from_paths(cls, paths):
-        minx, maxx, miny, maxy = 100000, 0, 0, 0
+    def from_paths(cls, paths, part_two=False):
+        maxy = 0
         for path in paths:
             for x, y in path:
-                minx = min(minx, x)
-                maxx = max(maxx, x)
-                miny = min(miny, y)
                 maxy = max(maxy, y)
-        # grid = [["." for _ in range(minx, maxx + 1)] for _ in range(miny, maxy + 1)]
         walls = set()
         for path in paths:
             for start, end in zip(path, path[1:]):
-                walls.add(tuple(start))
-                walls.add(tuple(end))
                 for x, y in line(start, end):
-                    # grid[y - miny][x - minx] = "#"
                     walls.add((x, y))
-        # grid.append(['.' for _ in grid[0]])
-        # grid.append(['#' for _ in grid[0]])
-        return Grid(minx, maxx, miny, maxy, walls=walls)
+        if part_two:
+            maxy += 2
+        return Grid(maxy, part_two, walls=walls)
 
-    def peek(self, p, dx=0, dy=0):
-        x, y = p
-        x += dx
-        y += dy
-        q = (x, y)
+    def peek(self, x, y, dx=0, dy=0):
+        q = (x + dx, y + dy)
         if q in self.walls:
             return '#'
         elif q in self.placed:
             return 'o'
-        if y == self.maxy + 2:
+        elif self.part_two and y + dy == self.maxy:
             # infinite wall
             return '#'
         return '.'
@@ -69,58 +44,31 @@ class Grid:
         self.placed.add(p)
 
     def add_piece(self):
-        pos = [500, 0]
+        x, y = 500, 0
         # fall until we hit something
         while True:
-            oldpos = [pos[0], pos[1]]
-            while self.peek(pos, dy=1) == '.':
-                pos[1] += 1
-            if self.peek(pos, dx=-1, dy=1) == '.':
+            oldy = y
+            while y < self.maxy and self.peek(x, y, dy=1) == '.':
+                y += 1
+            if y < self.maxy and self.peek(x, y, dx=-1, dy=1) == '.':
                 # try left
-                pos[0] -= 1
-                pos[1] += 1
-            elif self.peek(pos, dx=1, dy=1) == '.':
+                x -= 1
+                y += 1
+            elif y < self.maxy and self.peek(x, y, dx=1, dy=1) == '.':
                 # try right
-                pos[0] += 1
-                pos[1] += 1
-            if pos != oldpos:
+                x += 1
+                y += 1
+            if oldy != y:
                 # successfully moved, keep falling
                 continue
-            space = self.peek(pos, 0, 0)
-            if space == '.':
-                self.place(tuple(pos))
+            space = self.peek(x, y, 0, 0)
+            if space == '.' and y < self.maxy:
+                self.place((x, y))
                 return True
             return False
 
-    def can_place(self, pos):
-        return pos[1] == self.maxy
 
-
-if os.environ.get("DEBUG"):
-
-    def debug(msg):
-        print("[DEBUG]: ", end="", file=sys.stderr)
-        print(msg, file=sys.stderr)
-
-else:
-
-    def debug(msg):
-        pass
-
-
-# def one(paths):
-#     grid = Grid.from_paths(paths)
-#     c = 0
-#     while True:
-#         done = grid.add_piece()
-#         if done:
-#             break
-#         c += 1
-#     print(c)
-#     print(len(grid.placed))
-
-
-def two(paths):
+def one(paths):
     grid = Grid.from_paths(paths)
     c = 0
     while True:
@@ -128,6 +76,28 @@ def two(paths):
             print(c)
             break
         c += 1
+
+
+def two(paths):
+    grid = Grid.from_paths(paths, part_two=True)
+    c = 0
+
+    with profiled(stream=sys.stderr):
+        while True:
+            if not grid.add_piece():
+                print(c)
+                break
+            c += 1
+
+@contextmanager
+def profiled(stream, sortby=SortKey.CUMULATIVE):
+    pr = cProfile.Profile()
+    pr.enable()
+    yield
+    pr.disable()
+    ps = pstats.Stats(pr, stream=stream).sort_stats(sortby)
+    ps.print_stats()
+
 
 def line(start, end):
     assert start[0] == end[0] or start[1] == end[1]
@@ -163,7 +133,7 @@ def input():
 
 
 def main(lines):
-    # one(deepcopy(lines))
+    one(deepcopy(lines))
     two(lines)
 
 
