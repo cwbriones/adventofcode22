@@ -1,25 +1,29 @@
 from functools import cmp_to_key
 import sys
 from ast import literal_eval
+from typing import Literal
+
+# NOTE: Recursive types are only supported by pyright
+Expr = int | list['Expr']
+
+Cmp = Literal[0, 1, -1]
+
+def compare(left: Expr, right: Expr) -> Cmp:
+    match (left, right):
+        case ([*_] as left, [*_] as right):
+            for a, b in zip(left, right):
+                if (res := compare(a, b)) != 0:
+                    return res
+            return cmp(len(left), len(right))
+        case ([*_], _):
+            return compare(left, [right])
+        case (_, [*_]):
+            return compare([left], right)
+        case _:
+            return cmp(left, right)
 
 
-def compare(left, right, depth=0):
-    if isinstance(left, int) and isinstance(right, int):
-        return cmp(left, right)
-    elif isinstance(left, list) and isinstance(right, list):
-        for a, b in zip(left, right):
-            if (res := compare(a, b, depth + 1)) != 0:
-                return res
-        return cmp(len(left), len(right))
-    elif isinstance(left, int):
-        return compare([left], right, depth)
-    elif isinstance(right, int):
-        return compare(left, [right], depth)
-    else:
-        raise ValueError("bad comparison")
-
-
-def cmp(a, b):
+def cmp(a, b) -> Cmp:
     return (a > b) - (a < b)
 
 
@@ -28,7 +32,7 @@ def one(pairs):
 
 
 def two(pairs):
-    keys = [[[2]], [[6]]]
+    keys: list[Expr] = [[[2]], [[6]]]
     values = keys.copy()
     for pair in pairs:
         values.extend(pair)
@@ -40,7 +44,7 @@ def two(pairs):
     print(i * j)
 
 
-def input():
+def input() -> list[Expr]:
     lines = [line.strip() for line in sys.stdin.readlines()]
     while len(lines) % 3 != 0:
         lines.append("")
