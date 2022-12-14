@@ -4,7 +4,7 @@ from collections import (
     deque,
 )
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import functools
 import math
 import os
@@ -17,13 +17,16 @@ class Grid:
     maxx: int
     miny: int
     maxy: int
-    grid: list[list[str]]
+    # grid: list[list[str]]
 
-    def draw(self):
-        self.grid[0][500 - self.minx] = "+"
-        for row in self.grid:
-            print("".join(row))
-        self.grid[0][500 - self.minx] = "."
+    walls: set[tuple[int, int]] = field(default_factory=set)
+    placed: set[tuple[int, int]] = field(default_factory=set)
+
+    # def draw(self):
+    #     self.grid[0][500 - self.minx] = "+"
+    #     for row in self.grid:
+    #         print("".join(row))
+    #     self.grid[0][500 - self.minx] = "."
 
 
     @classmethod
@@ -35,29 +38,35 @@ class Grid:
                 maxx = max(maxx, x)
                 miny = min(miny, y)
                 maxy = max(maxy, y)
-        minx -= 1
-        maxx += 1
-
-        grid = [["." for _ in range(minx, maxx + 1)] for _ in range(miny, maxy + 1)]
+        # grid = [["." for _ in range(minx, maxx + 1)] for _ in range(miny, maxy + 1)]
+        walls = set()
         for path in paths:
             for start, end in zip(path, path[1:]):
+                walls.add(tuple(start))
+                walls.add(tuple(end))
                 for x, y in line(start, end):
-                    grid[y - miny][x - minx] = "#"
-        return Grid(minx, maxx, miny, maxy, grid)
+                    # grid[y - miny][x - minx] = "#"
+                    walls.add((x, y))
+        # grid.append(['.' for _ in grid[0]])
+        # grid.append(['#' for _ in grid[0]])
+        return Grid(minx, maxx, miny, maxy, walls=walls)
 
     def peek(self, p, dx=0, dy=0):
         x, y = p
         x += dx
         y += dy
-        if x < self.minx or x > self.maxx:
-            return None
-        if y < self.miny or y > self.maxy:
-            return None
-        return self.grid[y - self.miny][x - self.minx]
+        q = (x, y)
+        if q in self.walls:
+            return '#'
+        elif q in self.placed:
+            return 'o'
+        if y == self.maxy + 2:
+            # infinite wall
+            return '#'
+        return '.'
 
-    def place(self, p):
-        x, y = p
-        self.grid[y - self.miny][x - self.minx] = 'o'
+    def place(self, p: tuple[int, int]):
+        self.placed.add(p)
 
     def add_piece(self):
         pos = [500, 0]
@@ -66,18 +75,24 @@ class Grid:
             oldpos = [pos[0], pos[1]]
             while self.peek(pos, dy=1) == '.':
                 pos[1] += 1
-            # try left
             if self.peek(pos, dx=-1, dy=1) == '.':
+                # try left
                 pos[0] -= 1
                 pos[1] += 1
             elif self.peek(pos, dx=1, dy=1) == '.':
+                # try right
                 pos[0] += 1
                 pos[1] += 1
-            if pos == oldpos:
-                self.place(pos)
-                return self.falls_forever(pos)
+            if pos != oldpos:
+                # successfully moved, keep falling
+                continue
+            space = self.peek(pos, 0, 0)
+            if space == '.':
+                self.place(tuple(pos))
+                return True
+            return False
 
-    def falls_forever(self, pos):
+    def can_place(self, pos):
         return pos[1] == self.maxy
 
 
@@ -93,20 +108,26 @@ else:
         pass
 
 
-def one(paths):
-    grid = Grid.from_paths(paths)
-    c = 0
-    while True:
-        done = grid.add_piece()
-        if done:
-            break
-        c += 1
-    grid.draw()
-    print(c)
+# def one(paths):
+#     grid = Grid.from_paths(paths)
+#     c = 0
+#     while True:
+#         done = grid.add_piece()
+#         if done:
+#             break
+#         c += 1
+#     print(c)
+#     print(len(grid.placed))
 
 
 def two(paths):
-    pass
+    grid = Grid.from_paths(paths)
+    c = 0
+    while True:
+        if not grid.add_piece():
+            print(c)
+            break
+        c += 1
 
 def line(start, end):
     assert start[0] == end[0] or start[1] == end[1]
@@ -142,7 +163,7 @@ def input():
 
 
 def main(lines):
-    one(deepcopy(lines))
+    # one(deepcopy(lines))
     two(lines)
 
 
