@@ -10,12 +10,11 @@ from pstats import SortKey
 @dataclass
 class Grid:
     maxy: int
-    part_two: bool
     walls: set[tuple[int, int]] = field(default_factory=set)
     placed: set[tuple[int, int]] = field(default_factory=set)
 
     @classmethod
-    def from_paths(cls, paths, part_two=False):
+    def from_paths(cls, paths):
         maxy = 0
         for path in paths:
             for x, y in path:
@@ -25,23 +24,23 @@ class Grid:
             for start, end in zip(path, path[1:]):
                 for x, y in line(start, end):
                     walls.add((x, y))
-        if part_two:
-            maxy += 2
-        return Grid(maxy, part_two, walls=walls)
+        return Grid(maxy, walls=walls)
 
-    def peek(self, x, y, dx=0, dy=0):
-        q = (x + dx, y + dy)
-        if q in self.walls:
-            return '#'
-        elif q in self.placed:
-            return 'o'
-        elif self.part_two and y + dy == self.maxy:
-            # infinite wall
-            return '#'
-        return '.'
-
-    def place(self, p: tuple[int, int]):
-        self.placed.add(p)
+    def filled(self):
+        fringe: list[tuple[int, int]] = [(500, 0)]
+        placed = set(self.walls)
+        wall_count = len(placed)
+        maxy = self.maxy + 2
+        while fringe:
+            p = fringe.pop()
+            x, y = p
+            if p in placed or y == maxy:
+                continue
+            placed.add(p)
+            fringe.append((x, y+1))
+            fringe.append((x-1, y+1))
+            fringe.append((x+1, y+1))
+        return len(placed) - wall_count
 
     def add_piece(self):
         x, y = 500, 0
@@ -67,6 +66,18 @@ class Grid:
                 return True
             return False
 
+    def peek(self, x, y, dx=0, dy=0):
+        q = (x + dx, y + dy)
+        if q in self.walls:
+            return '#'
+        elif q in self.placed:
+            return 'o'
+        return '.'
+
+    def place(self, p: tuple[int, int]):
+        self.placed.add(p)
+
+
 
 def one(paths):
     grid = Grid.from_paths(paths)
@@ -79,15 +90,8 @@ def one(paths):
 
 
 def two(paths):
-    grid = Grid.from_paths(paths, part_two=True)
-    c = 0
-
-    with profiled(stream=sys.stderr):
-        while True:
-            if not grid.add_piece():
-                print(c)
-                break
-            c += 1
+    grid = Grid.from_paths(paths)
+    print(grid.filled())
 
 @contextmanager
 def profiled(stream, sortby=SortKey.CUMULATIVE):
