@@ -1,30 +1,13 @@
 import sys
+from typing import TypeVar, Iterable
 
 
 Cube = tuple[int, int, int]
+T = TypeVar("T")
 
 
-def adjacent(a, b):
-    x1, y1, z1 = a
-    x2, y2, z2 = b
-    k = (abs(x1 - x2), abs(y1 - y2), abs(z1 - z2))
-    return k in [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
-
-
-def surface_area(coords: list[Cube]):
-    sides = len(coords) * 6
-    # quadratic time fun
-    for a, b in pairs(coords):
-        if adjacent(a, b):
-            sides -= 2
-    return sides
-
-
-def main(coords):
-    total = surface_area(coords)
-
+def main(lava: set[Cube]) -> None:
     # define the boundaries
-    lava = set(coords)
     maxx, maxy, maxz = 0, 0, 0
     for x, y, z in lava:
         maxx = max(x, maxx)
@@ -45,9 +28,7 @@ def main(coords):
         return at_boundary and p not in lava
 
     # all cubes within boundaries that are not lava
-    air = set(
-        s for cube in lava for s in sides(cube) if in_bounds(s) and s not in lava
-    )
+    air = set(s for cube in lava for s in sides(cube) if in_bounds(s) and s not in lava)
 
     # walk and merge the cubes into connected groups
     visited = set()
@@ -60,9 +41,7 @@ def main(coords):
         search = [start]
         while search:
             cube = search.pop()
-            if not in_bounds(cube):
-                continue
-            if cube in visited or cube in lava:
+            if cube in visited or cube in lava or not in_bounds(cube):
                 continue
             visited.add(cube)
             group.add(cube)
@@ -72,23 +51,25 @@ def main(coords):
 
     # If a single cube is touching open air, the whole group is open
     inner_area = sum(
-        surface_area(list(g))
-        for g in groups
-        if not any(is_open_air(p) for p in g)
+        surface_area(g) for g in groups if not any(is_open_air(p) for p in g)
     )
+    total = surface_area(lava)
     # one
     print(total)
     # two
     print(total - inner_area)
 
 
-def pairs(items):
-    for i, item in enumerate(items):
-        for other in items[i + 1 :]:
-            yield item, other
+def surface_area(cubes: set[Cube]) -> int:
+    area = 0
+    for cube in cubes:
+        for side in sides(cube):
+            if side not in cubes:
+                area += 1
+    return area
 
 
-def sides(cube):
+def sides(cube: Cube) -> Iterable[Cube]:
     x, y, z = cube
     yield from [
         (x - 1, y, z),
@@ -100,10 +81,8 @@ def sides(cube):
     ]
 
 
-def input():
-    coords = [tuple(map(int, line.split(","))) for line in sys.stdin.readlines()]
-    coords.sort()
-    return coords
+def input() -> set[Cube]:
+    return set(tuple(map(int, line.split(","))) for line in sys.stdin.readlines())
 
 
 if __name__ == "__main__":
