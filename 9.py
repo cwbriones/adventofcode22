@@ -6,7 +6,7 @@ def one(moves):
 
 
 def two(moves):
-    solve(moves, 10, debug=True)
+    solve(moves, 10)
 
 
 def solve(moves, segments, debug=False):

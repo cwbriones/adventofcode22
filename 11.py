@@ -9,8 +9,6 @@ from typing import Callable, NamedTuple, Iterator
 
 
 def one(monkeys: list[Monkey]) -> None:
-    for m in monkeys:
-        print(m)
     run(monkeys, 20, divide=True)
 
 
@@ -27,8 +25,6 @@ def run(monkeys: list[Monkey], rounds: int, divide: bool = False) -> None:
             while (res := monkey.inspect(divide=divide)) is not None:
                 item, target = res
                 monkeys[target].receive(item % p)
-    for i, m in enumerate(monkeys):
-        print(f"Monkey {i}: {m.count}")
     monkeys.sort(key=lambda m: m.count, reverse=True)
     print(monkeys[0].count * monkeys[1].count)
 
