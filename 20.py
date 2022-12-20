@@ -1,20 +1,6 @@
 from __future__ import annotations
-import os
 import sys
-from copy import deepcopy
 from typing import Iterable, cast, Any
-
-
-if os.environ.get("DEBUG"):
-
-    def debug(msg):
-        print("[DEBUG]: ", end="", file=sys.stderr)
-        print(msg, file=sys.stderr)
-
-else:
-
-    def debug(msg):
-        pass
 
 
 class Node:
@@ -44,65 +30,59 @@ class List:
 
 class ListIterator:
     def __init__(self, lst):
-        self.lst = lst
-        self.cur = self.lst.head
+        self.cur = lst.head
+        self.end = lst.head
 
     def __iter__(self):
         return self
 
     def __next__(self):
         self.cur = self.cur.next
-        if self.cur is self.lst.head:
+        if self.cur is self.end:
             raise StopIteration
         return self.cur.item
 
 
-def one(nums: list[int]) -> None:
+def one(nums: Iterable[int]) -> None:
     linked = List()
     for n in nums:
         linked.append(n)
 
-    decode(linked)
-
-    # print(', '.join(str(item) for item in linked), end='\n\n')
-    node = linked.head
-    while node.item != 0:
-        node = node.next
-
-    # could do something smarter here but lets be straightforward
-    # for now
-    total = 0
-    i = 0
-    while i != 3000:
-        i += 1
-        node = node.next
-        if node is linked.head:
-            node = node.next
-        if i in (1000, 2000, 3000):
-            total += node.item
-    print(total)
+    decrypt(linked)
+    print(coords(linked))
 
 
-def decode(linked: List) -> None:
-    nodes: list[Node] = []
+def two(nums: Iterable[int]) -> None:
+    linked = List()
+    for n in nums:
+        linked.append(n * 811589153)
+    decrypt(linked, 10)
+    print(coords(linked))
+
+
+def decrypt(linked: List, rounds=1) -> None:
+    nodes = []
     dest = linked.head
     while (dest := dest.next) is not linked.head:
         nodes.append(dest)
-    nodecount = len(nodes)
+    for _ in range(rounds):
+        decrypt_inner(linked, nodes)
 
-    # print('Initial arrangement')
-    # print(', '.join(str(item) for item in linked), end='\n\n')
+def decrypt_inner(linked, nodes):
+    nodecount = len(nodes)
     for src in nodes:
         dest = src
 
         # Walk from this node's current position forward
         # until we find the spot where it should be inserted
-        i: int
-        if src.item > 0:
-            i = src.item % (nodecount - 1)
+        #
+        # We mod (n - 1) to avoid excessive loops. The -1
+        # accounts for the fact that the node being moved
+        # is not considered a part of walk
+        if src.item < 0:
+            i = src.item  % (nodecount - 1) 
         else:
-            i = src.item % (nodecount - 1)
-
+            i = src.item % (nodecount - 1) 
         if i == 0:
             continue
 
@@ -157,11 +137,27 @@ def decode(linked: List) -> None:
         #    ___   ____
         #   V   \ V    \
         #  d --> s -> d.next
+
+
+def coords(linked):
+    node = linked.head
+    while node.item != 0:
+        node = node.next
+
+    total = 0
+    i = 0
+    while i != 3000:
+        i += 1
+        node = node.next
+        if node is linked.head:
+            node = node.next
+        if i in (1000, 2000, 3000):
+            total += node.item
+    return total
+
+
+def show(linked):
     print(', '.join(str(item) for item in linked), end='\n\n')
-
-
-def two(nums: Iterable[int]) -> None:
-    pass
 
 
 def input() -> list[int]:
@@ -169,7 +165,7 @@ def input() -> list[int]:
 
 
 def main(lines):
-    one(deepcopy(lines))
+    one(lines)
     two(lines)
 
 

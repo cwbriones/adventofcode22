@@ -22,11 +22,11 @@ else:
 
 
 def one(lines):
-    print("one")
+    pass
 
 
 def two(lines):
-    print("two")
+    pass
 
 
 def input():
