@@ -55,26 +55,47 @@ def one(blueprints: Iterable[Blueprint]):
         quality_sum += best*bid
     print(quality_sum)
 
-def two(blueprints: Iterable[Blueprint]):
-    pass
+def two(blueprints: list[Blueprint]):
+    product = 1
+    for blueprint in blueprints[:3]:
+        best = find_best(blueprint, steps=32)
+        print(f'best is {best}')
+        product *= best
+    print(product)
 
 def find_best(
     blueprint: Blueprint,
     steps = 24,
 ) -> int:
     best = (0, None, None)
-    SearchState = tuple[Counter, Counter, int, int, list[str]]
+    SearchState = tuple[Counter, Counter, int, int]
 
     resources = Counter.empty().add_index(idx=0, val=1)
-    stack: deque[SearchState] = deque([(resources, Counter.empty(), 0, 1, [])])
+    stack: deque[SearchState] = deque([(resources, Counter.empty(), 0, 1)])
+
+    memo = defaultdict(lambda: 0)
+    costmaxes = [0] * 3
+    for k in range(3):
+        for cost in blueprint[1:]:
+            costmaxes[k] = max(costmaxes[k], cost[k])
+    costmaxes = Counter(*costmaxes)
+    def memokey(robots: Counter, resources: Counter):
+        trunc = tuple(
+                min(r, c) for r, c in zip(resources, costmaxes)
+        )
+        return (robots, trunc)
 
     while stack:
-        robots, resources, geodes, time, history = stack.popleft()
+        robots, resources, geodes, time= stack.popleft()
         if time >= steps:
-            best = max(best, (geodes, robots, history), key=itemgetter(0))
+            best = max(best, (geodes, robots), key=itemgetter(0))
             continue
+        key = memokey(robots, resources)
+        if memo[key] > geodes:
+            continue
+        memo[key] = geodes
         for kind, cost in enumerate(blueprint):
-            if kind != GEODE and robots[kind] >= max(cost[kind] for cost in blueprint):
+            if kind != GEODE and robots[kind] >= costmaxes[kind]:
                 # If we already have as many robots as the highest cost for any build, we
                 # do not need any more of that type (besides geode)
                 continue
@@ -89,26 +110,19 @@ def find_best(
             newtime = time + elapsed + 1
             if newtime > steps:
                 continue
-            entry = f't={time} deciding to wait {elapsed} res={resources}'
             # elapse time
             newresources = resources
             for _ in range(elapsed):
                 newresources = newresources.add(robots)
-            entry += f'\nt={time + elapsed} res={newresources}'
             # build the robot
             newresources = newresources.sub(cost).add(robots)
             if kind == GEODE:
                 newgeodes = geodes + (steps - newtime + 1)
                 newrobots = robots
-                entry += f'\n   accum geodes for {steps - newtime + 1}'
             else:
                 newgeodes = geodes
                 newrobots = robots.add_index(kind, 1)
-            entry += f'\nt={time + elapsed} built {RESOURCES[kind]} res={newresources}'
-            stack.append((newrobots, newresources, newgeodes, newtime, history + [entry]))
-    # if best[0] > 0:
-    #     for h in best[-1]:
-    #         print(f'{h}')
+            stack.append((newrobots, newresources, newgeodes, newtime))
     return best[0]
 
 def input() -> list[Blueprint]:
