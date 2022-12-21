@@ -24,8 +24,8 @@ RESOURCES = get_args(Resource)
 N = len(RESOURCES)
 
 class Counter(tuple[int, int, int, int]):
-    def __new__(cls, x1, x2, x3, x4) -> Counter:
-        return super().__new__(cls, (x1, x2, x3, x4))
+    def __new__(cls, x1, x2, x3) -> Counter:
+        return super().__new__(cls, (x1, x2, x3))
 
     def add(self, two: Counter) -> Counter:
         return Counter(*(a + b for a, b in zip(self, two)))
@@ -42,7 +42,7 @@ class Counter(tuple[int, int, int, int]):
     @staticmethod
     def empty():
         # could be a singleton :shruggie:
-        return Counter(0, 0, 0, 0)
+        return Counter(0, 0, 0)
 
 Blueprint = tuple[Counter, Counter, Counter, Counter]
 
@@ -60,20 +60,19 @@ def two(blueprints: Iterable[Blueprint]):
 
 def find_best(
     blueprint: Blueprint,
+    steps = 24,
 ) -> int:
     best = (0, None, None)
-    SearchState = tuple[Counter, Counter, int, list[str]]
+    SearchState = tuple[Counter, Counter, int, int, list[str]]
 
     resources = Counter.empty().add_index(idx=0, val=1)
-    stack: deque[SearchState] = deque([(resources, Counter.empty(), 1, [])])
-    MAXTIME = 24
+    stack: deque[SearchState] = deque([(resources, Counter.empty(), 0, 1, [])])
 
     while stack:
-        robots, resources, time, history = stack.popleft()
-        if time > MAXTIME:
-            best = max(best, (resources[3], robots, history), key=itemgetter(0))
+        robots, resources, geodes, time, history = stack.popleft()
+        if time >= steps:
+            best = max(best, (geodes, robots, history), key=itemgetter(0))
             continue
-
         for kind, cost in enumerate(blueprint):
             if kind != GEODE and robots[kind] >= max(cost[kind] for cost in blueprint):
                 # If we already have as many robots as the highest cost for any build, we
@@ -88,7 +87,7 @@ def find_best(
                 if r < c
             ), default=0)
             newtime = time + elapsed + 1
-            if newtime > MAXTIME:
+            if newtime > steps:
                 continue
             entry = f't={time} deciding to wait {elapsed} res={resources}'
             # elapse time
@@ -98,16 +97,15 @@ def find_best(
             entry += f'\nt={time + elapsed} res={newresources}'
             # build the robot
             newresources = newresources.sub(cost).add(robots)
-            newrobots = robots.add_index(kind, 1)
+            if kind == GEODE:
+                newgeodes = geodes + (steps - newtime + 1)
+                newrobots = robots
+                entry += f'\n   accum geodes for {steps - newtime + 1}'
+            else:
+                newgeodes = geodes
+                newrobots = robots.add_index(kind, 1)
             entry += f'\nt={time + elapsed} built {RESOURCES[kind]} res={newresources}'
-            stack.append((newrobots, newresources, newtime, history + [entry]))
-
-        # don't do anything until the end
-        newresources = resources
-        for _ in range(MAXTIME+1-time):
-            newresources = newresources.add(robots)
-        history = history + [f't={time} nothing left to do.']
-        stack.append((robots, newresources, MAXTIME+1, history))
+            stack.append((newrobots, newresources, newgeodes, newtime, history + [entry]))
     # if best[0] > 0:
     #     for h in best[-1]:
     #         print(f'{h}')
@@ -120,7 +118,7 @@ def input() -> list[Blueprint]:
     for line in sys.stdin.readlines():
         line = line.strip()
         _, costline = line.split(': ')
-        costmap: list[Counter] = [Counter(0, 0, 0, 0)] * 4
+        costmap: list[Counter] = [Counter(0, 0, 0)] * 4
         for costentry in costline.split('Each '):
             if not costentry:
                 continue
@@ -129,7 +127,7 @@ def input() -> list[Blueprint]:
             name = name[:-6]
             assert name in RESOURCES
 
-            costs = [0] * len(get_args(Resource))
+            costs = [0] * (len(get_args(Resource)) - 1)
             for val, kind in costpat.findall(costline):
                 costs[indices[kind]] = int(val)
             costmap[indices[name]] = Counter(*costs)
