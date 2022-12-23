@@ -80,9 +80,9 @@ def decrypt_inner(linked, nodes):
         # accounts for the fact that the node being moved
         # is not considered a part of walk
         if src.item < 0:
-            i = src.item  % (nodecount - 1) 
+            i = src.item  % (nodecount - 1)
         else:
-            i = src.item % (nodecount - 1) 
+            i = src.item % (nodecount - 1)
         if i == 0:
             continue
 
